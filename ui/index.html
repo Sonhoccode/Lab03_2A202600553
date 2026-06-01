@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot vs ReAct Agent — Lab 3 Comparison</title>
+  <meta name="description" content="So sánh trực quan giữa Chatbot đơn giản và ReAct Agent thông minh trong bài toán tìm kiếm vé máy bay." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-top-row">
+      <div class="header-badge">LAB 3 // VinUni AI</div>
+      <div id="modeIndicator" class="mode-indicator mode-sim">🎭 SIMULATION (backend offline)</div>
+    </div>
+    <h1 class="site-title">CHATBOT <span class="title-vs">VS</span> REACT AGENT</h1>
+    <p class="site-subtitle">Phân tích sự khác biệt giữa LLM đơn thuần và vòng lặp Thought–Action–Observation</p>
+    <div class="header-line"></div>
+  </header>
+
+  <!-- ARCHITECTURE COMPARISON -->
+  <section class="arch-section" id="architecture">
+    <div class="arch-grid">
+      <div class="arch-card arch-chatbot">
+        <div class="arch-label">01 // CHATBOT</div>
+        <h2 class="arch-title">Simple LLM</h2>
+        <div class="arch-flow">
+          <div class="flow-node node-user">User Input</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node node-llm">LLM Generate</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node node-out">Output</div>
+        </div>
+        <ul class="arch-traits">
+          <li class="trait-bad">✗ Không có công cụ thực tế</li>
+          <li class="trait-bad">✗ Ảo giác dữ liệu (hallucination)</li>
+          <li class="trait-bad">✗ Không thể tính toán chính xác</li>
+          <li class="trait-good">✓ Phản hồi nhanh, đơn giản</li>
+          <li class="trait-good">✓ Không cần nhiều bước</li>
+        </ul>
+      </div>
+
+      <div class="arch-divider">
+        <div class="divider-vs">⟺</div>
+      </div>
+
+      <div class="arch-card arch-agent">
+        <div class="arch-label">02 // REACT AGENT</div>
+        <h2 class="arch-title">Thought–Action–Obs</h2>
+        <div class="arch-flow arch-flow-loop">
+          <div class="flow-node node-think">Thought</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node node-act">Action</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node node-obs">Observation</div>
+          <div class="flow-loop-arrow">↩ lặp</div>
+        </div>
+        <ul class="arch-traits">
+          <li class="trait-good">✓ Gọi công cụ thực tế</li>
+          <li class="trait-good">✓ Tính toán chính xác với dữ liệu</li>
+          <li class="trait-good">✓ Lý luận đa bước phức tạp</li>
+          <li class="trait-bad">✗ Chậm hơn (nhiều API calls)</li>
+          <li class="trait-bad">✗ Phức tạp hơn để triển khai</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTERACTIVE DEMO -->
+  <section class="demo-section" id="demo">
+    <div class="demo-header">
+      <span class="section-label">// INTERACTIVE DEMO</span>
+      <h2 class="section-title">Thử Nghiệm Trực Tiếp</h2>
+      <p class="section-desc">Chọn câu hỏi mẫu và xem hai hệ thống xử lý như thế nào</p>
+    </div>
+
+    <!-- PRESET CASES -->
+    <div class="preset-bar">
+      <span class="preset-label">CÂU HỎI MẪU:</span>
+      <div class="preset-list" id="presetList">
+        <button class="preset-btn active" data-idx="0">Case 1: Giá rẻ nhất</button>
+        <button class="preset-btn" data-idx="1">Case 2: Hành lý 20kg</button>
+        <button class="preset-btn" data-idx="2">Case 3: Vietnam Airlines</button>
+        <button class="preset-btn" data-idx="3">Case 4: 2 vé hoàn được</button>
+        <button class="preset-btn" data-idx="4">Case 5: Sớm nhất SGN→HAN</button>
+      </div>
+    </div>
+
+    <!-- CUSTOM INPUT -->
+    <div class="input-area">
+      <label class="input-label" for="userQuery">NHẬP CÂU HỎI CỦA BẠN</label>
+      <div class="input-row">
+        <input 
+          type="text" 
+          id="userQuery" 
+          class="query-input" 
+          placeholder="Vd: Bay HAN → SGN ngày 12/06, giá rẻ nhất là bao nhiêu?"
+        />
+        <button class="run-btn" id="runBtn" onclick="runComparison()">
+          <span class="run-icon">▶</span> CHẠY SO SÁNH
+        </button>
+      </div>
+    </div>
+
+    <!-- DUAL PANEL -->
+    <div class="dual-panel" id="dualPanel">
+      <!-- CHATBOT PANEL -->
+      <div class="panel panel-chatbot" id="chatbotPanel">
+        <div class="panel-header">
+          <div class="panel-badge chatbot-badge">CHATBOT</div>
+          <div class="panel-meta" id="chatbotMeta">Sẵn sàng</div>
+        </div>
+        <div class="panel-body">
+          <div class="thinking-indicator" id="chatbotThinking" style="display:none">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="thinking-text">Đang tạo phản hồi...</span>
+          </div>
+          <div class="response-area" id="chatbotResponse">
+            <div class="placeholder-text">↑ Nhập câu hỏi và nhấn CHẠY để xem phản hồi của Chatbot</div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <div class="metric-row">
+            <div class="metric">
+              <span class="metric-label">Bước xử lý</span>
+              <span class="metric-val" id="chatbotSteps">—</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Công cụ dùng</span>
+              <span class="metric-val" id="chatbotTools">Không có</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Độ chính xác</span>
+              <span class="metric-val metric-danger" id="chatbotAccuracy">?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AGENT PANEL -->
+      <div class="panel panel-agent" id="agentPanel">
+        <div class="panel-header">
+          <div class="panel-badge agent-badge">REACT AGENT</div>
+          <div class="panel-meta" id="agentMeta">Sẵn sàng</div>
+        </div>
+        <div class="panel-body">
+          <div class="thinking-indicator" id="agentThinking" style="display:none">
+            <span class="dot agent-dot"></span><span class="dot agent-dot"></span><span class="dot agent-dot"></span>
+            <span class="thinking-text">Đang thực thi vòng lặp ReAct...</span>
+          </div>
+          <div class="trace-area" id="agentTrace"></div>
+          <div class="response-area agent-response-area" id="agentResponse">
+            <div class="placeholder-text">↑ Nhập câu hỏi và nhấn CHẠY để xem ReAct Agent hoạt động</div>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <div class="metric-row">
+            <div class="metric">
+              <span class="metric-label">Bước xử lý</span>
+              <span class="metric-val" id="agentSteps">—</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Công cụ dùng</span>
+              <span class="metric-val" id="agentTools">—</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Độ chính xác</span>
+              <span class="metric-val metric-success" id="agentAccuracy">?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOOLS SECTION -->
+  <section class="tools-section" id="tools">
+    <div class="section-header-row">
+      <span class="section-label">// AGENT TOOLS</span>
+      <h2 class="section-title">Công Cụ Của Agent</h2>
+    </div>
+    <div class="tools-grid">
+      <div class="tool-card" id="tool-search">
+        <div class="tool-icon">🔍</div>
+        <div class="tool-name">search_flights</div>
+        <div class="tool-desc">Tìm kiếm chuyến bay theo tuyến, ngày, hạng vé, ngân sách, hãng bay</div>
+        <div class="tool-params">
+          <span class="param">origin</span>
+          <span class="param">destination</span>
+          <span class="param">date</span>
+          <span class="param">cabin</span>
+          <span class="param">budget</span>
+          <span class="param">carrier</span>
+        </div>
+        <div class="tool-status tool-idle" id="status-search">IDLE</div>
+      </div>
+      <div class="tool-card" id="tool-fare">
+        <div class="tool-icon">📋</div>
+        <div class="tool-name">get_fare_rules</div>
+        <div class="tool-desc">Lấy quy tắc giá vé: hoàn tiền, phí đổi vé, hành lý miễn cước</div>
+        <div class="tool-params">
+          <span class="param">flight_id</span>
+        </div>
+        <div class="tool-status tool-idle" id="status-fare">IDLE</div>
+      </div>
+      <div class="tool-card" id="tool-seat">
+        <div class="tool-icon">💺</div>
+        <div class="tool-name">check_seat_availability</div>
+        <div class="tool-desc">Kiểm tra số ghế còn lại cho số hành khách yêu cầu</div>
+        <div class="tool-params">
+          <span class="param">flight_id</span>
+          <span class="param">passenger_count</span>
+        </div>
+        <div class="tool-status tool-idle" id="status-seat">IDLE</div>
+      </div>
+      <div class="tool-card" id="tool-price">
+        <div class="tool-icon">🧮</div>
+        <div class="tool-name">calculate_total_price</div>
+        <div class="tool-desc">Tính tổng giá với thuế 10% và các dịch vụ bổ sung</div>
+        <div class="tool-params">
+          <span class="param">flight_id</span>
+          <span class="param">passenger_count</span>
+          <span class="param">add_ons</span>
+        </div>
+        <div class="tool-status tool-idle" id="status-price">IDLE</div>
+      </div>
+      <div class="tool-card" id="tool-book">
+        <div class="tool-icon">✈️</div>
+        <div class="tool-name">create_booking</div>
+        <div class="tool-desc">Tạo đặt chỗ và trả về mã xác nhận</div>
+        <div class="tool-params">
+          <span class="param">flight_id</span>
+          <span class="param">passenger_info</span>
+          <span class="param">add_ons</span>
+        </div>
+        <div class="tool-status tool-idle" id="status-book">IDLE</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLIGHT DATA TABLE -->
+  <section class="data-section" id="data">
+    <div class="section-header-row">
+      <span class="section-label">// FLIGHT DATABASE</span>
+      <h2 class="section-title">Dữ Liệu Chuyến Bay</h2>
+    </div>
+    <div class="table-wrapper">
+      <table class="flight-table" id="flightTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Hãng Bay</th>
+            <th>Tuyến</th>
+            <th>Khởi Hành</th>
+            <th>Đến Nơi</th>
+            <th>Hạng</th>
+            <th>Giá Cơ Bản</th>
+            <th>Hoàn?</th>
+            <th>Hành Lý</th>
+          </tr>
+        </thead>
+        <tbody id="flightTableBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- STATS SECTION -->
+  <section class="stats-section" id="stats">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number" id="statRuns">0</div>
+        <div class="stat-label">Lần Chạy Demo</div>
+      </div>
+      <div class="stat-card stat-card-amber">
+        <div class="stat-number">1</div>
+        <div class="stat-label">Bước — Chatbot</div>
+      </div>
+      <div class="stat-card stat-card-emerald">
+        <div class="stat-number">3–5</div>
+        <div class="stat-label">Bước — Agent</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">5</div>
+        <div class="stat-label">Công Cụ Có Sẵn</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KEY INSIGHT -->
+  <section class="insight-section" id="insight">
+    <div class="insight-box">
+      <div class="insight-tag">KEY INSIGHT</div>
+      <blockquote class="insight-quote">
+        "Chatbot đoán — Agent <em>biết</em>."
+      </blockquote>
+      <p class="insight-body">
+        Khi bạn hỏi <strong>"Giá vé rẻ nhất HAN→SGN ngày 12/06 là bao nhiêu?"</strong>, 
+        Chatbot sẽ đưa ra con số nghe có vẻ hợp lý nhưng hoàn toàn ảo. 
+        ReAct Agent gọi <code>search_flights()</code>, lấy dữ liệu thực, 
+        rồi gọi <code>calculate_total_price()</code> để tính đúng số tiền với thuế.
+      </p>
+      <div class="insight-compare">
+        <div class="compare-item compare-bad">
+          <div class="compare-header">❌ Chatbot</div>
+          <div class="compare-content">
+            "Giá vé thường dao động từ 800.000đ đến 2.500.000đ..."<br/>
+            <em>(đoán mò, không có dữ liệu thực)</em>
+          </div>
+        </div>
+        <div class="compare-item compare-good">
+          <div class="compare-header">✅ ReAct Agent</div>
+          <div class="compare-content">
+            Thought → search_flights(HAN,SGN,2026-06-12)<br/>
+            Obs → [VJ801: 1.500.000đ, VJ201: 1.650.000đ, ...]<br/>
+            Thought → calculate_total_price(VJ801, 1, [])<br/>
+            Obs → total: 1.650.000đ (với 10% thuế)<br/>
+            <strong>Final: VJ801 - 1.650.000đ</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHAT SECTION -->
+  <section class="chat-section" id="chat">
+    <div class="section-header-row">
+      <span class="section-label">// FREE CHAT</span>
+      <h2 class="section-title">Trò Chuyện Tự Do</h2>
+      <p class="section-desc">Chat có bộ nhớ — Agent nhớ các lượt trước trong cùng phiên</p>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="chat-toolbar">
+      <div class="chat-mode-toggle">
+        <button class="mode-btn mode-btn-active" id="chatModeChatbot" onclick="setChatMode('chatbot')">
+          🤖 Chatbot
+        </button>
+        <button class="mode-btn" id="chatModeAgent" onclick="setChatMode('agent')">
+          ⚡ ReAct Agent
+        </button>
+      </div>
+      <div class="chat-info">
+        <span class="chat-turn-count" id="chatTurnCount">0 lượt</span>
+        <span class="chat-model-badge" id="chatModelBadge">—</span>
+      </div>
+      <button class="clear-btn" id="clearChatBtn" onclick="clearChat()">🗑 Xóa lịch sử</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-welcome">
+        <div class="welcome-icon">💬</div>
+        <div class="welcome-title">Bắt đầu cuộc trò chuyện</div>
+        <div class="welcome-sub">Chọn <strong>Chatbot</strong> hoặc <strong>ReAct Agent</strong> rồi nhập câu hỏi bất kỳ</div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-bar">
+      <input
+        type="text"
+        id="chatInput"
+        class="chat-input"
+        placeholder="Nhập câu hỏi... (Enter để gửi)"
+        autocomplete="off"
+      />
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">
+        <span id="chatSendIcon">➤</span>
+      </button>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="footer-line"></div>
+    <div class="footer-content">
+      <span class="footer-tag">LAB 3 — Agentic AI Course // VinUni 2026</span>
+      <span class="footer-sep">|</span>
+      <span class="footer-tag">Chatbot vs ReAct Agent</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

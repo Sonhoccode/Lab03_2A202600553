@@ -26,6 +26,17 @@ pip install -r requirements.txt
 4.  **Failure Analysis**: Use the structured logs in `logs/` to identify why the agent fails (hallucinations, parsing errors).
 5.  **Grading & Bonus**: Follow the [SCORING.md](file:///Users/tindt/personal/ai-thuc-chien/day03-lab-agent/SCORING.md) to maximize your points and explore bonus metrics.
 
+## 🧠 Agent Memory
+
+The ReAct agent keeps a rolling conversation memory across turns. By default it remembers the last `12` user/assistant turns.
+
+You can change this in `.env`:
+```env
+AGENT_MEMORY_TURNS=20
+```
+
+Higher values help with follow-up questions, but they also increase prompt size and API cost.
+
 ## 🛠️ How to Use This Baseline
 The code is designed as a **Production Prototype**. It includes:
 - **Telemetry**: Every action is logged in JSON format for later analysis.

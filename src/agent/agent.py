@@ -1,6 +1,7 @@
 import json
+import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from src.core.llm_provider import LLMProvider
 from src.telemetry.logger import logger
 from src.telemetry.metrics import tracker
@@ -12,11 +13,18 @@ class ReActAgent:
     Students should implement the core loop logic and tool execution.
     """
     
-    def __init__(self, llm: LLMProvider, tools: List[Dict[str, Any]], max_steps: int = 5):
+    def __init__(
+        self,
+        llm: LLMProvider,
+        tools: List[Dict[str, Any]],
+        max_steps: int = 5,
+        memory_turns: Optional[int] = None,
+    ):
         self.llm = llm
         self.tools = tools
         self.max_steps = max_steps
-        self.history = []
+        self.memory_turns = memory_turns if memory_turns is not None else int(os.getenv("AGENT_MEMORY_TURNS", "12"))
+        self.history: List[Dict[str, str]] = []
 
     def get_system_prompt(self) -> str:
         """
@@ -44,6 +52,25 @@ class ReActAgent:
             "If you are ready to answer, output Final Answer and no Action."
         )
 
+    def _trim_history(self) -> None:
+        max_messages = max(self.memory_turns * 2, 0)
+        if max_messages and len(self.history) > max_messages:
+            self.history = self.history[-max_messages:]
+
+    def _remember(self, role: str, content: str) -> None:
+        self.history.append({"role": role, "content": content})
+        self._trim_history()
+
+    def _render_history(self) -> str:
+        if not self.history:
+            return ""
+
+        lines = ["Conversation memory:"]
+        for item in self.history:
+            lines.append(f"{item['role'].capitalize()}: {item['content']}")
+        lines.append("")
+        return "\n".join(lines)
+
     def run(self, user_input: str) -> str:
         """
         TODO: Implement the ReAct loop logic.
@@ -52,12 +79,12 @@ class ReActAgent:
         3. Append Observation to prompt and repeat until Final Answer.
         """
         logger.log_event("AGENT_START", {"input": user_input, "model": self.llm.model_name})
-        
-        current_prompt = user_input
+
+        memory_context = self._render_history()
+        current_prompt = user_input if not memory_context else f"{memory_context}User: {user_input}"
         steps = 0
         last_response = ""
         final_answer = ""
-
         while steps < self.max_steps:
             try:
                 result = self.llm.generate(current_prompt, system_prompt=self.get_system_prompt())
@@ -96,13 +123,16 @@ class ReActAgent:
             )
             current_prompt = f"{current_prompt}\n\nObservation: {observation}"
             steps += 1
-            
-            steps += 1
-            
+
         logger.log_event("AGENT_END", {"steps": steps})
         if final_answer:
+            self._remember("user", user_input)
+            self._remember("assistant", final_answer)
             return final_answer
-        return last_response or "error: no_response"
+        fallback_answer = last_response or "error: no_response"
+        self._remember("user", user_input)
+        self._remember("assistant", fallback_answer)
+        return fallback_answer
 
     def _extract_action(self, content: str) -> Dict[str, Any]:
         match = re.search(r"Action:\s*(\{.*\})", content, re.DOTALL)
